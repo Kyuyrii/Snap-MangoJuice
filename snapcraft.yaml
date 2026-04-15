@@ -1,0 +1,83 @@
+name: mangojuice
+base: core24
+version: '0.9.0'
+adopt-info: mangojuice-app
+platforms:
+  amd64:
+    build-on: [amd64]
+    build-for: [amd64]
+grade: stable
+confinement: strict
+icon: io.github.radiolamp.mangojuice.svg
+
+apps:
+  mangojuice:
+    command-chain: [define-variables]
+    command: usr/bin/mangojuice
+    desktop: usr/share/applications/io.github.radiolamp.mangojuice.desktop
+    common-id: io.github.radiolamp.mangojuice
+    environment:
+      HOME: $SNAP_USER_COMMON
+    extensions: [gnome]
+    plugs:
+      - home
+      - network
+      - network-bind
+      - network-status
+      - mount-observe
+      - system-observe
+      - hardware-observe
+      - upower-observe
+
+plugs:
+  shared-memory:
+    private: true
+
+slots:
+  mangojuice:
+    interface: dbus
+    bus: session
+    name: io.github.radiolamp.mangojuice
+
+layout:
+  /usr/lib/mangohud:
+    symlink: $SNAP/usr/lib/mangohud
+
+lint:
+  ignore:
+    - library:
+        - usr/lib/mangohud/lib32/**
+
+parts:
+  mangojuice-app:
+    plugin: meson
+    source: https://github.com/radiolamp/mangojuice.git
+    source-tag: $SNAPCRAFT_PROJECT_VERSION
+    parse-info: [data/io.github.radiolamp.mangojuice.metainfo.xml]
+    meson-parameters:
+      - --prefix=/usr
+    override-build: |
+      craftctl default
+      sed -i 's|Name=MangoJuice|Name=MangoJuice [Kyu]|' $CRAFT_PART_INSTALL/usr/share/applications/io.github.radiolamp.mangojuice.desktop
+      echo "StartupWMClass=io.github.radiolamp.mangojuice" >> $CRAFT_PART_INSTALL/usr/share/applications/io.github.radiolamp.mangojuice.desktop
+
+  mangohud:
+    after: [mangojuice-app]
+    plugin: dump
+    source: https://github.com/flightlessmango/MangoHud/releases/download/v0.8.2/MangoHud-0.8.2.r0.ga37b007.tar.gz
+    override-build: |
+      craftctl default
+      tar -xvf MangoHud-package.tar -C $CRAFT_PART_INSTALL
+      sed -i 's|MANGOHUD_LIB_NAME="/usr/lib/mangohud/\\$LIB/libMangoHud_shim.so"|MANGOHUD_LIB_NAME="/usr/lib/mangohud/lib64/libMangoHud_shim.so"|' $CRAFT_PART_INSTALL/usr/bin/mangohud
+    prime: [usr]
+
+  dependencies:
+    after: [mangohud]
+    plugin: nil
+    stage-packages:
+      - mesa-utils
+
+  other-files:
+    after: [dependencies]
+    plugin: dump
+    source: ./other-files
